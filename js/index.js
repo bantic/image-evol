@@ -11,7 +11,7 @@ function run(wasm) {
   let width = 200,
     height = 100;
 
-  let image = wasm.Image.new(width, height);
+  let image = wasm.RandomImage.new(width, height);
 
   let draw = () => drawImage(els.canvas, image, wasm);
   draw();

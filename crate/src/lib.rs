@@ -108,18 +108,117 @@ impl Image {
     (y * self.width + x) as usize
   }
 
-  //   real deltax := x1 - x0
-  //  real deltay := y1 - y0
-  //  real deltaerr := abs(deltay / deltax)    // Assume deltax != 0 (line is not vertical),
-  //        // note that this division needs to be done in a way that preserves the fractional part
-  //  real error := 0.0 // No error at start
-  //  int y := y0
-  //  for x from x0 to x1
-  //      plot(x,y)
-  //      error := error + deltaerr
-  //      if error ≥ 0.5 then
-  //          y := y + sign(deltay) * 1
-  //          error := error - 1.0
+  // used for tests
+  pub fn get_pixel(&self, x: u32, y: u32) -> Pixel {
+    self.pixels[self.pixel_index(x, y)].clone()
+  }
+
+  pub fn invert(&mut self) {
+    for i in 0..self.size() {
+      self.pixels[i].invert();
+    }
+  }
+}
+
+#[derive(Debug, Clone)]
+struct Segment {
+  x0: u32,
+  x1: u32,
+  y0: u32,
+  y1: u32,
+}
+
+#[wasm_bindgen]
+pub struct RandomImage {
+  width: u32,
+  height: u32,
+  pixels: Vec<Pixel>,
+  segments: Vec<Segment>,
+}
+
+#[wasm_bindgen]
+impl RandomImage {
+  pub fn new(width: u32, height: u32) -> RandomImage {
+    let size = (width * height) as usize;
+    let pixels: Vec<Pixel> = (0..size).map(|_| Pixel::new()).collect();
+    let segments = vec![
+      Segment {
+        x0: 0,
+        x1: width,
+        y0: 0,
+        y1: height,
+      },
+      Segment {
+        x0: 0,
+        x1: width,
+        y0: height,
+        y1: 0,
+      },
+    ];
+    let mut ri = RandomImage {
+      width,
+      height,
+      pixels,
+      segments,
+    };
+    for segment in ri.segments.clone() {
+      ri.line(
+        segment.x0 as i32,
+        segment.y0 as i32,
+        segment.x1 as i32,
+        segment.y1 as i32,
+      );
+    }
+    ri
+  }
+
+  pub fn width(&self) -> u32 {
+    self.width
+  }
+
+  pub fn height(&self) -> u32 {
+    self.height
+  }
+
+  pub fn size(&self) -> usize {
+    (self.width * self.height) as usize
+  }
+
+  pub fn pixels(&self) -> *const Pixel {
+    self.pixels.as_ptr()
+  }
+
+  pub fn in_bounds(&self, x: i32, y: i32) -> bool {
+    (x as u32) < self.width && x >= 0 && (y as u32) < self.height && y >= 0
+  }
+
+  pub fn line(&mut self, x0: i32, y0: i32, x1: i32, y1: i32) {
+    let delta_x = x1 - x0;
+    let delta_y = y1 - y0;
+    let delta_err: f32 = (delta_y as f32 / delta_x as f32).abs();
+    let mut error: f32 = 0.0;
+    let mut y = y0;
+    for x in x0..x1 {
+      if self.in_bounds(x, y) {
+        let index = self.pixel_index(x as u32, y as u32);
+        self.pixels[index].add_color();
+      }
+
+      error += delta_err;
+      if error >= 0.5 {
+        if delta_y > 0 {
+          y = y + 1;
+        } else {
+          y = y - 1;
+        }
+        error = error - 1.0;
+      }
+    }
+  }
+
+  fn pixel_index(&self, x: u32, y: u32) -> usize {
+    (y * self.width + x) as usize
+  }
 
   // used for tests
   pub fn get_pixel(&self, x: u32, y: u32) -> Pixel {
