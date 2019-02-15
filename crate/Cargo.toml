@@ -32,6 +32,10 @@ features = [
   "console"
 ]
 
+[dependencies.rand]
+version = "0.6.5"
+features = [ "wasm-bindgen" ]
+
 [features]
 default = ["console_error_panic_hook"]
 

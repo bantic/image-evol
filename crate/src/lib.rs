@@ -1,6 +1,10 @@
 #[macro_use]
 extern crate cfg_if;
+extern crate rand;
 extern crate wasm_bindgen;
+
+use rand::rngs::OsRng;
+use rand::Rng;
 
 use wasm_bindgen::prelude::*;
 
@@ -141,20 +145,17 @@ impl RandomImage {
   pub fn new(width: u32, height: u32) -> RandomImage {
     let size = (width * height) as usize;
     let pixels: Vec<Pixel> = (0..size).map(|_| Pixel::new()).collect();
-    let segments = vec![
-      Segment {
-        x0: 0,
-        x1: width,
-        y0: 0,
-        y1: height,
-      },
-      Segment {
-        x0: 0,
-        x1: width,
-        y0: height,
-        y1: 0,
-      },
-    ];
+
+    let segment_count = 8;
+    let mut segments = vec![];
+    let mut rng = OsRng::new().unwrap();
+    for _ in 0..segment_count {
+      let x0 = rng.gen_range(0, width);
+      let x1 = rng.gen_range(0, width);
+      let y0 = rng.gen_range(0, height);
+      let y1 = rng.gen_range(0, height);
+      segments.push(Segment { x0, x1, y0, y1 })
+    }
     let mut ri = RandomImage {
       width,
       height,
@@ -193,6 +194,11 @@ impl RandomImage {
   }
 
   pub fn line(&mut self, x0: i32, y0: i32, x1: i32, y1: i32) {
+    if y0 == y1 {
+      return self._horiz_line(y0, x0, x1);
+    } else if x0 == x1 {
+      return self._vert_line(x0, y0, y1);
+    }
     let delta_x = x1 - x0;
     let delta_y = y1 - y0;
     let delta_err: f32 = (delta_y as f32 / delta_x as f32).abs();
@@ -212,6 +218,26 @@ impl RandomImage {
           y = y - 1;
         }
         error = error - 1.0;
+      }
+    }
+  }
+
+  fn _vert_line(&mut self, x0: i32, y0: i32, y1: i32) {
+    let x = x0;
+    for y in y0..y1 {
+      if self.in_bounds(x, y) {
+        let index = self.pixel_index(x as u32, y as u32);
+        self.pixels[index].add_color();
+      }
+    }
+  }
+
+  fn _horiz_line(&mut self, y0: i32, x0: i32, x1: i32) {
+    let y = y0;
+    for x in x0..x1 {
+      if self.in_bounds(x, y) {
+        let index = self.pixel_index(x as u32, y as u32);
+        self.pixels[index].add_color();
       }
     }
   }
