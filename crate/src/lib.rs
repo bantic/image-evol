@@ -167,18 +167,68 @@ impl RandomImage {
   }
 
   fn pixel_index(&self, x: u32, y: u32) -> usize {
-    (y * self.width + x) as usize
+    let idx = (y * self.width + x) as usize;
+    if idx >= self.size() {
+      log!(
+        "Tried to get pixel at ({},{}) -> idx {}, size {}",
+        x,
+        y,
+        idx,
+        self.size()
+      );
+    }
+    idx
   }
 
-  // used for tests
+  pub fn shrink(&self, width: u32, height: u32) -> RandomImage {
+    let tile_width = self.width / width;
+    let tile_height = self.height / height;
+
+    let size: usize = (tile_width * tile_height) as usize;
+    let pixels: Vec<Pixel> = Vec::with_capacity(size);
+
+    let mut shrunk_img = RandomImage {
+      width: self.width / tile_width,
+      height: self.height / tile_height,
+      pixels,
+      segments: vec![],
+    };
+
+    for tile_row in 0..shrunk_img.height {
+      for tile_col in 0..shrunk_img.width {
+        let mut sum_r: u32 = 0;
+        let mut sum_g: u32 = 0;
+        let mut sum_b: u32 = 0;
+        for x in (tile_col * tile_width)..((tile_col + 1) * tile_width) {
+          for y in (tile_row * tile_height)..((tile_row + 1) * tile_height) {
+            let pixel = self.get_pixel(x, y);
+            sum_r += pixel.r as u32;
+            sum_g += pixel.g as u32;
+            sum_b += pixel.b as u32;
+          }
+        }
+
+        let avg_pixel = Pixel {
+          r: (sum_r / size as u32) as u8,
+          g: (sum_g / size as u32) as u8,
+          b: (sum_b / size as u32) as u8,
+          a: 255,
+        };
+        shrunk_img.set_pixel(tile_col, tile_row, avg_pixel);
+      }
+    }
+
+    shrunk_img
+  }
+
+  pub fn set_pixel(&mut self, x: u32, y: u32, p: Pixel) {
+    let idx = self.pixel_index(x, y);
+    self.pixels.push(p);
+    // self.pixels[idx] = p;
+  }
+
   pub fn get_pixel(&self, x: u32, y: u32) -> Pixel {
     self.pixels[self.pixel_index(x, y)].clone()
-  }
-
-  pub fn invert(&mut self) {
-    for i in 0..self.size() {
-      self.pixels[i].invert();
-    }
   }
 }
 
@@ -195,17 +245,11 @@ pub struct Pixel {
 impl Pixel {
   fn new() -> Pixel {
     Pixel {
-      r: 50,
-      g: 250,
-      b: 50,
+      r: 255,
+      g: 255,
+      b: 255,
       a: 255,
     }
-  }
-
-  pub fn invert(&mut self) {
-    self.r = 255 - self.r;
-    self.g = 255 - self.g;
-    self.b = 255 - self.b;
   }
 
   pub fn add_color(&mut self) {

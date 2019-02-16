@@ -5,13 +5,12 @@ import('../crate/pkg').then(module => {
 function run(wasm) {
   let els = {
     canvas: document.getElementById('canvas'),
+    canvas2: document.getElementById('canvas2'),
     button: document.getElementById('button')
   };
 
-  let width = 300,
-    height = 300;
-  els.canvas.width = width;
-  els.canvas.height = height;
+  let width = 500,
+    height = 500;
 
   let image = wasm.RandomImage.new(width, height);
 
@@ -19,15 +18,18 @@ function run(wasm) {
   draw();
 
   els.button.addEventListener('click', () => {
-    image.line(50, 25, 150, 25);
-    image.line(50, 25, 50, 100);
-    draw();
+    let now = new Date();
+    let newImage = image.shrink(100, 100);
+    console.log('shrink in: ', new Date() - now);
+    drawImage(els.canvas2, newImage, wasm);
   });
 }
 
 function drawImage(canvas, image, wasm) {
   let width = image.width(),
     height = image.height();
+  canvas.width = width;
+  canvas.height = height;
   let mem = wasm.get_memory();
   let pixels = image.pixels();
   let data = new Uint8ClampedArray(mem.buffer, pixels, 4 * image.size());
