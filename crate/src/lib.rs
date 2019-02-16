@@ -199,6 +199,10 @@ impl RandomImage {
     } else if x0 == x1 {
       return self._vert_line(x0, y0, y1);
     }
+    if x0 > x1 {
+      // re-order so that we go from left to right
+      return self.line(x1, y1, x0, y0);
+    }
     let delta_x = x1 - x0;
     let delta_y = y1 - y0;
     let delta_err: f32 = (delta_y as f32 / delta_x as f32).abs();

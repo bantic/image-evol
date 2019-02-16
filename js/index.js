@@ -8,8 +8,10 @@ function run(wasm) {
     button: document.getElementById('button')
   };
 
-  let width = 200,
-    height = 100;
+  let width = 300,
+    height = 300;
+  els.canvas.width = width;
+  els.canvas.height = height;
 
   let image = wasm.RandomImage.new(width, height);
 
@@ -17,8 +19,8 @@ function run(wasm) {
   draw();
 
   els.button.addEventListener('click', () => {
-    image.line(100, 50, 200, 100);
-    image.line(100, 99, 199, 50);
+    image.line(50, 25, 150, 25);
+    image.line(50, 25, 50, 100);
     draw();
   });
 }
