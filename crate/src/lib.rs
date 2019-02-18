@@ -5,10 +5,7 @@ extern crate wasm_bindgen;
 
 use rand::rngs::OsRng;
 use rand::Rng;
-
 use wasm_bindgen::prelude::*;
-
-extern crate web_sys;
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
