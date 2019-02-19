@@ -1,8 +1,8 @@
 {
-  "author": "Nick Fitzgerald <nfitzgerald@mozilla.com>",
-  "name": "create-rust-webpack",
+  "author": "Cory Forsyth",
+  "name": "image-evol",
   "version": "0.1.5",
-  "repository": "https://github.com/rustwasm/rust-webpack-template",
+  "repository": "https://github.com/bantic/image-evol",
   "license": "Apache-2.0/MIT",
   "scripts": {
     "start": "webpack-dev-server -d",
