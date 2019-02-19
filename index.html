@@ -5,8 +5,25 @@
     <title>My awesome Rust, WebAssembly, and Webpack application</title>
   </head>
   <body>
-    <button id="button">Invert</button>
+    <p>
+      Experiment to compare the speed of shrinking an image with WASM or in
+      plain JS.
+    </p>
+    <p>
+      The shrink algorithm is: iterate through the pixels of the image and
+      average contiguous blocks of pixels.
+    </p>
+    <p>
+      Timings are logged in the console. Sample results on 2/19/19 for a
+      500x500->100x100 shrink:
+      <br />
+      Shrink with JS takes ~15-25ms (but multiple calls appear to cause Chrome's
+      optimizing compiler to kick in, and subsequent shrinks take ~3ms). Shrink
+      with WASM takes ~65-75ms.
+    </p>
+    <button id="button-js">Shrink with JS</button>
+    <button id="button-wasm">Shrink with WASM</button>
     <canvas id="canvas"></canvas>
-    <canvas id="canvas2"></canvas>
+    <canvas id="canvas-shrink"></canvas>
   </body>
 </html>
