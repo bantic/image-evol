@@ -5,6 +5,7 @@ import('../crate/pkg').then(module => {
 function run(wasm) {
   let els = {
     canvas: document.getElementById('canvas'),
+    canvas2: document.getElementById('canvas2'),
     canvasShrink: document.getElementById('canvas-shrink'),
     buttonWASM: document.getElementById('button-wasm')
   };
@@ -16,14 +17,24 @@ function run(wasm) {
 
   drawImageFromWASMMemory(els.canvas, image, wasm);
 
+  let referenceImage = image.shrink(10, 10);
+  let diff = Infinity;
+
   // WASM-based shrinking
   els.buttonWASM.addEventListener('click', () => {
-    console.time('shrinkWASM');
-    let newImage = image.shrink(100, 100);
-    console.timeEnd('shrinkWASM');
-    drawImageFromWASMMemory(els.canvasShrink, newImage, wasm);
-    newImage.drop(); // free memory on WASM side
+    requestAnimationFrame(update);
   });
+
+  function update() {
+    let newImage = wasm.RandomImage.new(width, height);
+    let newDiff = referenceImage.compare(newImage.shrink(10, 10));
+    if (newDiff < diff) {
+      console.log(`Diff ${diff} -> ${newDiff} (${diff - newDiff})`);
+      diff = newDiff;
+      drawImageFromWASMMemory(els.canvas2, newImage, wasm);
+    }
+    requestAnimationFrame(update);
+  }
 }
 
 // Find the slice of WASM memory that corresponds to the image's
