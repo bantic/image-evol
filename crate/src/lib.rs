@@ -304,82 +304,27 @@ impl RandomImage {
           b: (sum_b / size as u32) as u8,
           a: 255,
         };
-        shrunk_img.set_pixel(tile_col, tile_row, avg_pixel);
+        shrunk_img.pixels.push(avg_pixel);
       }
     }
 
     shrunk_img
   }
 
-  /*
-  An idea for an alternative approach to shrinking the image by iterating only once through the
-  pixels of the image and determining at each one what its (x,y) coord in the shrunk image would be,
-  then using a HashMap to keep track of the sums of r,g,b in each output pixel,
-  and finally building up the shrunk pixel Vec.
-  This function is about an order of magnitude slower than the other one when run in WASM, ~700ms.
-  */
-  pub fn shrink_via_hashmap(&self, width: u32, height: u32) -> RandomImage {
-    let tile_width = self.width / width;
-    let tile_height = self.height / height;
-
-    let size: usize = (tile_width * tile_height) as usize;
-
-    let mut buckets: HashMap<(u32, u32), (u32, u32, u32)> = HashMap::new();
-
-    let mut pixel_idx = 0;
-    for pixel in &self.pixels {
-      let image_y = pixel_idx / self.height;
-      let image_x = pixel_idx - image_y * self.width;
-
-      // Corresponding output pixel that this input pixel will shrink down to
-      let shrink_x = image_x / tile_width;
-      let shrink_y = image_y / tile_height;
-
-      let (r, g, b) = buckets.entry((shrink_x, shrink_y)).or_insert((0, 0, 0));
-      *r += pixel.r as u32;
-      *g += pixel.g as u32;
-      *b += pixel.b as u32;
-      pixel_idx += 1;
+  pub fn compare(&self, other: RandomImage) -> f64 {
+    let mut err = 0.0;
+    if self.size() != other.size() {
+      log!(
+        "Got bad sizes for compare {} <> {}",
+        self.size(),
+        other.size()
+      );
+      panic!("Got bad sizes for compare");
     }
-
-    let mut pixels: Vec<Pixel> = Vec::with_capacity(size);
-    for shrink_y in 0..(self.height / tile_height) {
-      for shrink_x in 0..(self.width / tile_width) {
-        let (r_sum, g_sum, b_sum) = match buckets.get(&(shrink_x, shrink_y)) {
-          Some(v) => v,
-          None => {
-            log!(
-              "Failed to find value for bucket at ({},{})",
-              shrink_x,
-              shrink_y
-            );
-            panic!("argh");
-          }
-        };
-        pixels.push(Pixel {
-          r: (*r_sum / size as u32) as u8,
-          g: (*g_sum / size as u32) as u8,
-          b: (*b_sum / size as u32) as u8,
-          a: 255,
-        });
-      }
+    for (lhs, rhs) in self.pixels.iter().zip(other.pixels) {
+      err += lhs.squared_error(rhs);
     }
-
-    let shrunk_img = RandomImage {
-      width,
-      height,
-      pixels,
-      segments: vec![],
-    };
-    shrunk_img
-  }
-
-  // TODO - this doesn't actually put it in the right place, it just pushes it
-  // onto the pixels Vec. It works because it is called in the correct row-by-row-then-col-by-col order
-  pub fn set_pixel(&mut self, x: u32, y: u32, p: Pixel) {
-    // let idx = self.pixel_index(x, y);
-    self.pixels.push(p);
-    // self.pixels[idx] = p;
+    err / self.pixels.len() as f64
   }
 
   // TODO - Is this a speed/memory issue, that the pixel must be cloned? It is a lightweight struct so
@@ -411,6 +356,13 @@ impl Pixel {
       b: 255,
       a: 255,
     }
+  }
+
+  fn squared_error(&self, other: Pixel) -> f64 {
+    (self.r as f64 - other.r as f64).powi(2)
+      + (self.g as f64 - other.g as f64).powi(2)
+      + (self.b as f64 - other.b as f64).powi(2)
+      + (self.a as f64 - other.a as f64).powi(2)
   }
 
   pub fn add_color(&mut self) {
