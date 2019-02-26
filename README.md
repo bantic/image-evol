@@ -1,29 +1,14 @@
-# 🦀🕸 `rust-webpack-template`
+# image-evol
 
-> **Kickstart your Rust, WebAssembly, and Webpack project!**
+An experiment in writing a genetic evolution algorithm that runs in wasm in the browser.
 
-This template is designed for creating monorepo-style Web applications with
-Rust-generated WebAssembly and Webpack without publishing your wasm to NPM.
+# todos
 
-* Want to create and publish NPM packages with Rust and WebAssembly? [Check out
-  `wasm-pack-template`.](https://github.com/rustwasm/wasm-pack-template)
+- [] write the similarity code
+- [] write mutation code
+- [] write loop to mutate
 
-## 🔋 Batteries Included
-
-This template comes pre-configured with all the boilerplate for compiling Rust
-to WebAssembly and hooking into a Webpack build pipeline.
-
-* `npm run start` -- Serve the project locally for development at
+- `npm run start` -- Serve the project locally for development at
   `http://localhost:8080`.
 
-* `npm run build` -- Bundle the project (in production mode).
-
-## 🚴 Using This Template
-
-First, [install `wasm-pack`!](https://rustwasm.github.io/wasm-pack/installer/)
-
-Then, use `npm init` to clone this template:
-
-```sh
-npm init rust-webpack my-app
-```
+- `npm run build` -- Bundle the project (in production mode).
