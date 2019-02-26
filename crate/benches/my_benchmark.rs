@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate criterion;
-extern crate rust_webpack;
+extern crate image_evol;
 
 use criterion::Criterion;
-use rust_webpack::RandomImage;
+use image_evol::RandomImage;
 
 /*
  benchmark results on 2/9/19
@@ -33,14 +33,16 @@ fn bench_shrink_tiling(c: &mut Criterion) {
 }
 
 // 2/19/19 bench: 11.752ms
-fn bench_shrink_hashmap(c: &mut Criterion) {
-  let img = RandomImage::new(500, 500);
-  c.bench_function("basic shrink via hashmap 500x500 to 100x100", move |b| {
-    b.iter(|| {
-      img.shrink_via_hashmap(100, 100);
-    })
-  });
-}
+// Removed this fn on 2/26/19
+//
+// fn bench_shrink_hashmap(c: &mut Criterion) {
+//   let img = RandomImage::new(500, 500);
+//   c.bench_function("basic shrink via hashmap 500x500 to 100x100", move |b| {
+//     b.iter(|| {
+//       img.shrink_via_hashmap(100, 100);
+//     })
+//   });
+// }
 
-criterion_group!(benches, bench_shrink_hashmap, bench_shrink_tiling);
+criterion_group!(benches, bench_shrink_tiling);
 criterion_main!(benches);
