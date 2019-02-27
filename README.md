@@ -13,8 +13,10 @@ An experiment in writing a genetic evolution algorithm that runs in wasm in the 
 
 ## later todos
 
-- [ ] add filled triangles
+- [x] add filled triangles
+- [ ] replace line segments with triangles
 - [ ] colors & transparency
+- [ ] remove unneeded nalgebra?
 - [ ] sexual selection, in addition to mutation
 - [ ] load an image
 - [ ] UI controls to modify mutation rates

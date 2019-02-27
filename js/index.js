@@ -19,13 +19,13 @@ function run(wasm) {
   let { width, height } = LARGE_IMAGE_DIMS;
 
   console.time('RandomImage.new');
-  let image = wasm.RandomImage.new(width, height);
+  let referenceImage = wasm.RandomImage.new(width, height);
   console.timeEnd('RandomImage.new');
 
-  drawImageFromWASMMemory(els.canvas, image, wasm);
+  drawImageFromWASMMemory(els.canvas, referenceImage, wasm);
 
   let { width: widthShrunk, height: heightShrunk } = SHRUNK_DIMS;
-  let referenceImage = image.shrink(widthShrunk, heightShrunk);
+  let shrunkReferenceImage = referenceImage.shrink(widthShrunk, heightShrunk);
   let err = Infinity;
 
   let population = [];
@@ -37,7 +37,11 @@ function run(wasm) {
   }
 
   els.buttonWASM.addEventListener('click', () => {
-    requestAnimationFrame(update);
+    console.time('RandomImage.Triangle');
+    referenceImage.triangle(5, 5, 100, 15, 50, 55);
+    console.timeEnd('RandomImage.Triangle');
+    drawImageFromWASMMemory(els.canvas, referenceImage, wasm);
+    // requestAnimationFrame(update);
   });
 
   let iterations = 0;
@@ -54,7 +58,7 @@ function run(wasm) {
         continue;
       }
       item.image.mutate();
-      let newErr = referenceImage.compare(
+      let newErr = shrunkReferenceImage.compare(
         item.image.shrink(widthShrunk, heightShrunk)
       );
       item.err = newErr;
