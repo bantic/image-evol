@@ -13,7 +13,7 @@ An experiment in writing a genetic evolution algorithm that runs in wasm in the 
 
 ## later todos
 
-- [ ] add circles (ellipses, affine transforms)
+- [ ] add filled triangles
 - [ ] colors & transparency
 - [ ] sexual selection, in addition to mutation
 - [ ] load an image

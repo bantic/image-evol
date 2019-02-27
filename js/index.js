@@ -2,8 +2,9 @@ import('../crate/pkg').then(module => {
   run(module);
 });
 
-const LARGE_IMAGE_DIMS = { width: 500, height: 500 };
+const LARGE_IMAGE_DIMS = { width: 300, height: 300 };
 const SHRUNK_DIMS = { width: 10, height: 10 };
+const POP_SIZE = 10;
 
 function run(wasm) {
   let els = {
@@ -20,9 +21,6 @@ function run(wasm) {
   console.time('RandomImage.new');
   let image = wasm.RandomImage.new(width, height);
   console.timeEnd('RandomImage.new');
-  console.time('RandomImage.new');
-  let mutatedImage = wasm.RandomImage.new(width, height);
-  console.timeEnd('RandomImage.new');
 
   drawImageFromWASMMemory(els.canvas, image, wasm);
 
@@ -30,7 +28,14 @@ function run(wasm) {
   let referenceImage = image.shrink(widthShrunk, heightShrunk);
   let err = Infinity;
 
-  // WASM-based shrinking
+  let population = [];
+  for (let i = 0; i < POP_SIZE; i++) {
+    population.push({
+      image: wasm.RandomImage.new(width, height),
+      err: Infinity
+    });
+  }
+
   els.buttonWASM.addEventListener('click', () => {
     requestAnimationFrame(update);
   });
@@ -43,19 +48,29 @@ function run(wasm) {
     if (iterations > MAX_ITER) {
       return;
     }
-    console.time('mutate');
-    mutatedImage.mutate();
-    console.timeEnd('mutate');
-    console.time('shrink');
-    let shrunk = mutatedImage.shrink(widthShrunk, heightShrunk);
-    console.timeEnd('shrink');
-    console.time('compareError');
-    let newErr = referenceImage.compare(shrunk);
-    console.timeEnd('compareError');
-    if (newErr < err) {
-      err = newErr;
-      drawImageFromWASMMemory(els.canvas2, mutatedImage, wasm);
+
+    for (let item of population) {
+      if (item.err == err && err !== Infinity) {
+        continue;
+      }
+      item.image.mutate();
+      let newErr = referenceImage.compare(
+        item.image.shrink(widthShrunk, heightShrunk)
+      );
+      item.err = newErr;
     }
+
+    let sorted = population.sort((a, b) => {
+      return a.err < b.err ? -1 : a.err > b.err ? 1 : 0;
+    });
+    let best = sorted[0];
+    // reset bottom 2
+    sorted[sorted.length - 1].image.reset();
+    sorted[sorted.length - 2].image.reset();
+
+    console.log(`err ${err} -> ${best.err}`);
+    err = best.err;
+    drawImageFromWASMMemory(els.canvas2, best.image, wasm);
     updateUI(els, iterations, err);
     requestAnimationFrame(update);
   }
