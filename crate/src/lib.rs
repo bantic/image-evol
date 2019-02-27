@@ -5,7 +5,6 @@ extern crate wasm_bindgen;
 
 use rand::rngs::OsRng;
 use rand::Rng;
-use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
@@ -20,7 +19,7 @@ cfg_if! {
     // `set_panic_hook` function to get better error messages if we ever panic.
     if #[cfg(feature = "console_error_panic_hook")] {
         extern crate console_error_panic_hook;
-        use console_error_panic_hook::set_once as set_panic_hook;
+        // use console_error_panic_hook::set_once as set_panic_hook;
     } else {
         #[inline]
         fn set_panic_hook() {}
@@ -49,6 +48,44 @@ struct Segment {
   y0: u32,
   y1: u32,
 }
+impl Segment {
+  fn random(width: u32, height: u32, rng: &mut rand::rngs::OsRng) -> Segment {
+    let x0 = rng.gen_range(0, width) as u32;
+    let x1 = rng.gen_range(0, width) as u32;
+    let y0 = rng.gen_range(0, height) as u32;
+    let y1 = rng.gen_range(0, height) as u32;
+    Segment { x0, x1, y0, y1 }
+  }
+
+  fn mutate(&self, width: u32, height: u32, rng: &mut rand::rngs::OsRng) -> Segment {
+    let mutate_w = 0.1 * width as f64;
+    let mutate_h = 0.1 * height as f64;
+
+    fn clamp(v: f64, max: u32) -> u32 {
+      if v < 0.0 {
+        0
+      } else if v as u32 >= max {
+        max - 1
+      } else {
+        v as u32
+      }
+    }
+
+    fn clamped_rand(v: u32, rnd_width: f64, max: u32, rng: &mut rand::rngs::OsRng) -> u32 {
+      let v = v as f64;
+      let lo = clamp((v - rnd_width / 2.0) as f64, max);
+      let hi = clamp((v + rnd_width / 2.0) as f64, max);
+      rng.gen_range(lo, hi) as u32
+    }
+
+    Segment {
+      x0: clamped_rand(self.x0, mutate_w, width, rng),
+      x1: clamped_rand(self.x1, mutate_w, width, rng),
+      y0: clamped_rand(self.y0, mutate_h, height, rng),
+      y1: clamped_rand(self.y1, mutate_h, height, rng),
+    }
+  }
+}
 
 #[wasm_bindgen]
 pub struct RandomImage {
@@ -68,15 +105,43 @@ impl RandomImage {
     let mut segments = vec![];
     let mut rng = OsRng::new().unwrap();
     for _ in 0..segment_count {
-      let x0 = rng.gen_range(0, width);
-      let x1 = rng.gen_range(0, width);
-      let y0 = rng.gen_range(0, height);
-      let y1 = rng.gen_range(0, height);
-      segments.push(Segment { x0, x1, y0, y1 })
+      segments.push(Segment::random(width, height, &mut rng));
     }
     let mut ri = RandomImage {
       width,
       height,
+      pixels,
+      segments,
+    };
+    for segment in ri.segments.clone() {
+      ri.line(
+        segment.x0 as i32,
+        segment.y0 as i32,
+        segment.x1 as i32,
+        segment.y1 as i32,
+      );
+    }
+    ri
+  }
+
+  pub fn mutate(&self) -> RandomImage {
+    let size = (self.width * self.height) as usize;
+    let pixels: Vec<Pixel> = (0..size).map(|_| Pixel::new()).collect();
+    let mut rng = OsRng::new().unwrap();
+
+    let replace_thresh = 0.2;
+
+    let segments = self
+      .segments
+      .iter()
+      .map(|segment| match rng.gen_bool(replace_thresh) {
+        true => Segment::random(self.width, self.height, &mut rng),
+        false => segment.mutate(self.width, self.height, &mut rng),
+      })
+      .collect();
+    let mut ri = RandomImage {
+      width: self.width,
+      height: self.width,
       pixels,
       segments,
     };
@@ -311,7 +376,7 @@ impl RandomImage {
     shrunk_img
   }
 
-  pub fn compare(&self, other: RandomImage) -> f64 {
+  pub fn compare(&self, other: &RandomImage) -> f64 {
     let mut err = 0.0;
     if self.size() != other.size() {
       log!(
@@ -321,8 +386,8 @@ impl RandomImage {
       );
       panic!("Got bad sizes for compare");
     }
-    for (lhs, rhs) in self.pixels.iter().zip(other.pixels) {
-      err += lhs.squared_error(rhs);
+    for (lhs, rhs) in self.pixels.iter().zip(&other.pixels) {
+      err += lhs.squared_error(&rhs);
     }
     err / self.pixels.len() as f64
   }
@@ -331,10 +396,6 @@ impl RandomImage {
   // I would expect it to be fast. wasm-bindgen will not compile if this returns a ref to a pixel.
   pub fn get_pixel(&self, x: u32, y: u32) -> Pixel {
     self.pixels[self.pixel_index(x, y)].clone()
-  }
-
-  pub fn drop(&self) {
-    std::mem::drop(self);
   }
 }
 
@@ -358,7 +419,7 @@ impl Pixel {
     }
   }
 
-  fn squared_error(&self, other: Pixel) -> f64 {
+  fn squared_error(&self, other: &Pixel) -> f64 {
     (self.r as f64 - other.r as f64).powi(2)
       + (self.g as f64 - other.g as f64).powi(2)
       + (self.b as f64 - other.b as f64).powi(2)
