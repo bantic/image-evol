@@ -2,6 +2,8 @@
 
 An experiment in writing a genetic evolution algorithm that runs in wasm in the browser.
 
+![gif of image evoluation](image-evol.gif)
+
 # todos
 
 - [x] write the similarity code
