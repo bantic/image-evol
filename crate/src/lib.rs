@@ -101,7 +101,7 @@ impl RandomImage {
     let size = (width * height) as usize;
     let pixels: Vec<Pixel> = (0..size).map(|_| Pixel::new()).collect();
 
-    let segment_count = 8;
+    let segment_count = 15;
     let mut segments = vec![];
     let mut rng = OsRng::new().unwrap();
     for _ in 0..segment_count {

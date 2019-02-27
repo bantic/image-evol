@@ -2,6 +2,9 @@ import('../crate/pkg').then(module => {
   run(module);
 });
 
+const LARGE_IMAGE_DIMS = { width: 500, height: 500 };
+const SHRUNK_DIMS = { width: 25, height: 25 };
+
 function run(wasm) {
   let els = {
     canvas: document.getElementById('canvas'),
@@ -12,15 +15,19 @@ function run(wasm) {
     uiError: document.getElementById('ui-error')
   };
 
-  let width = 500,
-    height = 500;
+  let { width, height } = LARGE_IMAGE_DIMS;
 
+  console.time('RandomImage.new');
   let image = wasm.RandomImage.new(width, height);
+  console.timeEnd('RandomImage.new');
+  console.time('RandomImage.new');
   let mutatedImage = wasm.RandomImage.new(width, height);
+  console.timeEnd('RandomImage.new');
 
   drawImageFromWASMMemory(els.canvas, image, wasm);
 
-  let referenceImage = image.shrink(10, 10);
+  let { width: widthShrunk, height: heightShrunk } = SHRUNK_DIMS;
+  let referenceImage = image.shrink(widthShrunk, heightShrunk);
   let err = Infinity;
 
   // WASM-based shrinking
@@ -29,17 +36,18 @@ function run(wasm) {
   });
 
   let iterations = 0;
+  let MAX_ITER = Infinity;
 
   function update() {
     iterations++;
-    if (iterations > 10) {
+    if (iterations > MAX_ITER) {
       return;
     }
     console.time('mutate');
     let newImage = mutatedImage.mutate();
     console.timeEnd('mutate');
     console.time('shrink');
-    let shrunk = newImage.shrink(10, 10);
+    let shrunk = newImage.shrink(widthShrunk, heightShrunk);
     console.timeEnd('shrink');
     console.time('compareError');
     let newErr = referenceImage.compare(shrunk);
