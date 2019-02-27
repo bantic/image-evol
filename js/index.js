@@ -3,7 +3,7 @@ import('../crate/pkg').then(module => {
 });
 
 const LARGE_IMAGE_DIMS = { width: 500, height: 500 };
-const SHRUNK_DIMS = { width: 25, height: 25 };
+const SHRUNK_DIMS = { width: 10, height: 10 };
 
 function run(wasm) {
   let els = {
@@ -44,19 +44,18 @@ function run(wasm) {
       return;
     }
     console.time('mutate');
-    let newImage = mutatedImage.mutate();
+    mutatedImage.mutate();
     console.timeEnd('mutate');
     console.time('shrink');
-    let shrunk = newImage.shrink(widthShrunk, heightShrunk);
+    let shrunk = mutatedImage.shrink(widthShrunk, heightShrunk);
     console.timeEnd('shrink');
     console.time('compareError');
     let newErr = referenceImage.compare(shrunk);
     console.timeEnd('compareError');
     if (newErr < err) {
       err = newErr;
-      mutatedImage = newImage;
+      drawImageFromWASMMemory(els.canvas2, mutatedImage, wasm);
     }
-    drawImageFromWASMMemory(els.canvas2, mutatedImage, wasm);
     updateUI(els, iterations, err);
     requestAnimationFrame(update);
   }

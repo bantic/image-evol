@@ -57,7 +57,7 @@ impl Segment {
     Segment { x0, x1, y0, y1 }
   }
 
-  fn mutate(&self, width: u32, height: u32, rng: &mut rand::rngs::OsRng) -> Segment {
+  fn mutate(&mut self, width: u32, height: u32, rng: &mut rand::rngs::OsRng) {
     let mutate_w = 0.1 * width as f64;
     let mutate_h = 0.1 * height as f64;
 
@@ -78,16 +78,15 @@ impl Segment {
       rng.gen_range(lo, hi) as u32
     }
 
-    Segment {
-      x0: clamped_rand(self.x0, mutate_w, width, rng),
-      x1: clamped_rand(self.x1, mutate_w, width, rng),
-      y0: clamped_rand(self.y0, mutate_h, height, rng),
-      y1: clamped_rand(self.y1, mutate_h, height, rng),
-    }
+    self.x0 = clamped_rand(self.x0, mutate_w, width, rng);
+    self.x1 = clamped_rand(self.x1, mutate_w, width, rng);
+    self.y0 = clamped_rand(self.y0, mutate_h, height, rng);
+    self.y1 = clamped_rand(self.y1, mutate_h, height, rng);
   }
 }
 
 #[wasm_bindgen]
+#[derive(Clone)]
 pub struct RandomImage {
   width: u32,
   height: u32,
@@ -124,36 +123,30 @@ impl RandomImage {
     ri
   }
 
-  pub fn mutate(&self) -> RandomImage {
-    let size = (self.width * self.height) as usize;
-    let pixels: Vec<Pixel> = (0..size).map(|_| Pixel::new()).collect();
-    let mut rng = OsRng::new().unwrap();
-
-    let replace_thresh = 0.2;
-
-    let segments = self
-      .segments
-      .iter()
-      .map(|segment| match rng.gen_bool(replace_thresh) {
-        true => Segment::random(self.width, self.height, &mut rng),
-        false => segment.mutate(self.width, self.height, &mut rng),
-      })
-      .collect();
-    let mut ri = RandomImage {
-      width: self.width,
-      height: self.width,
-      pixels,
-      segments,
-    };
-    for segment in ri.segments.clone() {
-      ri.line(
+  fn re_render(&mut self) {
+    for pixel in &mut self.pixels {
+      pixel.r = 255;
+      pixel.g = 255;
+      pixel.b = 255;
+      pixel.a = 255;
+    }
+    for segment in self.segments.clone() {
+      self.line(
         segment.x0 as i32,
         segment.y0 as i32,
         segment.x1 as i32,
         segment.y1 as i32,
       );
     }
-    ri
+  }
+
+  pub fn mutate(&mut self) {
+    let mut rng = OsRng::new().unwrap();
+
+    for segment in &mut self.segments {
+      segment.mutate(self.width, self.height, &mut rng);
+    }
+    self.re_render();
   }
 
   pub fn width(&self) -> u32 {
@@ -272,54 +265,6 @@ impl RandomImage {
   // the first index (of 4) for this pixel
   fn pixel_sub_index(&self, x: u32, y: u32) -> usize {
     4 * self.pixel_index(x, y)
-  }
-
-  pub fn render(&self, pixels: &mut [u8]) {
-    for segment in &self.segments {
-      self.render_line(
-        pixels,
-        segment.x0 as i32,
-        segment.y0 as i32,
-        segment.x1 as i32,
-        segment.y1 as i32,
-      );
-    }
-  }
-
-  pub fn render_line(&self, pixels: &mut [u8], x0: i32, y0: i32, x1: i32, y1: i32) {
-    if y0 == y1 {
-      return self._render_horiz_line(pixels, y0, x0, x1);
-    } else if x0 == x1 {
-      return self._render_vert_line(pixels, x0, y0, y1);
-    }
-    if x0 > x1 {
-      // re-order so that we go from left to right
-      return self.render_line(pixels, x1, y1, x0, y0);
-    }
-    let delta_x = x1 - x0;
-    let delta_y = y1 - y0;
-    let delta_err: f32 = (delta_y as f32 / delta_x as f32).abs();
-    let mut error: f32 = 0.0;
-    let mut y = y0;
-    for x in x0..x1 {
-      if self.in_bounds(x, y) {
-        let index = self.pixel_sub_index(x as u32, y as u32);
-        pixels[index] = 0;
-        pixels[index + 1] = 0;
-        pixels[index + 2] = 0;
-        pixels[index + 3] = 255;
-      }
-
-      error += delta_err;
-      if error >= 0.5 {
-        if delta_y > 0 {
-          y = y + 1;
-        } else {
-          y = y - 1;
-        }
-        error = error - 1.0;
-      }
-    }
   }
 
   pub fn shrink(&self, width: u32, height: u32) -> RandomImage {
