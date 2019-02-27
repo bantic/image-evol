@@ -54,9 +54,7 @@ function run(wasm) {
         continue;
       }
       item.image.mutate();
-      let newErr = shrunkReferenceImage.compare(
-        item.image.shrink(widthShrunk, heightShrunk)
-      );
+      let newErr = item.image.calculate_fitness(shrunkReferenceImage);
       item.err = newErr;
     }
 

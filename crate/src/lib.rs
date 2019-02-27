@@ -438,6 +438,12 @@ impl RandomImage {
     shrunk_img
   }
 
+  pub fn calculate_fitness(&self, reference: &RandomImage) -> f64 {
+    self
+      .shrink(reference.width(), reference.height())
+      .compare(reference)
+  }
+
   pub fn compare(&self, other: &RandomImage) -> f64 {
     let mut err = 0.0;
     if self.size() != other.size() {
