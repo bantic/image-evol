@@ -7,8 +7,9 @@ An experiment in writing a genetic evolution algorithm that runs in wasm in the 
 - [x] write the similarity code
 - [x] write mutation code
 - [x] write loop to mutate
-- [ ] try to make mutate faster -- mutate in-place
-- [ ] try to make mutate faster -- see how it changes with _many_ more line segments
+- [x] try to make mutate faster -- mutate in-place (this worked -- way, way faster)
+- [x] try to make mutate faster -- see how it changes with _many_ more line segments -- no problem with even as many as 500 segments
+- [ ] create a pool of mutation candidates and select the best ones at each iteration -> improve the convergence
 
 ## later todos
 
