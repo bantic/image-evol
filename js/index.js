@@ -37,11 +37,7 @@ function run(wasm) {
   }
 
   els.buttonWASM.addEventListener('click', () => {
-    console.time('RandomImage.Triangle');
-    referenceImage.triangle(5, 5, 100, 15, 50, 55);
-    console.timeEnd('RandomImage.Triangle');
-    drawImageFromWASMMemory(els.canvas, referenceImage, wasm);
-    // requestAnimationFrame(update);
+    requestAnimationFrame(update);
   });
 
   let iterations = 0;
@@ -69,8 +65,9 @@ function run(wasm) {
     });
     let best = sorted[0];
     // reset bottom 2
-    sorted[sorted.length - 1].image.reset();
-    sorted[sorted.length - 2].image.reset();
+    // TODO bring back population culling
+    // sorted[sorted.length - 1].image.reset();
+    // sorted[sorted.length - 2].image.reset();
 
     console.log(`err ${err} -> ${best.err}`);
     err = best.err;

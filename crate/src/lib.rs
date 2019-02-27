@@ -43,6 +43,78 @@ pub fn get_memory() -> JsValue {
   wasm_bindgen::memory()
 }
 
+#[derive(Clone, Debug)]
+struct Color {
+  r: u8,
+  g: u8,
+  b: u8,
+  a: u8,
+}
+
+impl Default for Color {
+  fn default() -> Self {
+    Color::white()
+  }
+}
+
+impl Color {
+  fn from(p: &Pixel) -> Self {
+    Self {
+      r: p.r,
+      g: p.g,
+      b: p.b,
+      a: p.a,
+    }
+  }
+
+  fn random(rng: &mut rand::rngs::OsRng) -> Self {
+    Self {
+      r: rng.gen_range(0, 255),
+      g: rng.gen_range(0, 255),
+      b: rng.gen_range(0, 255),
+      a: rng.gen_range(0, 255),
+    }
+  }
+
+  fn white() -> Self {
+    Self {
+      r: 255,
+      g: 255,
+      b: 255,
+      a: 255,
+    }
+  }
+
+  // TODO: clean this up somehow
+  fn add(&self, other: &Color) -> Color {
+    let Color {
+      r: o_r,
+      g: o_g,
+      b: o_b,
+      a: o_a,
+    } = other;
+    let o_r = *o_r as f32;
+    let o_g = *o_g as f32;
+    let o_b = *o_b as f32;
+    let o_a = (*o_a as f32) / 255.0;
+    let r = self.r as f32;
+    let g = self.g as f32;
+    let b = self.b as f32;
+    let a = (self.a as f32) / 255.0;
+    let denom_part: f32 = a * (1.0 - o_a);
+    let r = (o_r * o_a + r * denom_part) / (o_a + denom_part);
+    let g = (o_g * o_a + g * denom_part) / (o_a + denom_part);
+    let b = (o_b * o_a + b * denom_part) / (o_a + denom_part);
+    let a = o_a + denom_part;
+    Color {
+      r: r as u8,
+      g: g as u8,
+      b: b as u8,
+      a: (255.0 * a) as u8,
+    }
+  }
+}
+
 struct Triangle {
   v0: Point2<u32>,
   v1: Point2<u32>,
@@ -156,25 +228,20 @@ impl Triangle {
   }
 }
 
-#[derive(Debug, Clone)]
-struct Segment {
-  x0: u32,
-  x1: u32,
-  y0: u32,
-  y1: u32,
-}
-impl Segment {
-  fn random(width: u32, height: u32, rng: &mut rand::rngs::OsRng) -> Segment {
-    let x0 = rng.gen_range(0, width) as u32;
-    let x1 = rng.gen_range(0, width) as u32;
-    let y0 = rng.gen_range(0, height) as u32;
-    let y1 = rng.gen_range(0, height) as u32;
-    Segment { x0, x1, y0, y1 }
+#[derive(Clone)]
+struct Gene(Point2<u32>, Point2<u32>, Point2<u32>, Color);
+impl Gene {
+  fn random(width: u32, height: u32, rng: &mut rand::rngs::OsRng) -> Gene {
+    Gene(
+      Point2::new(rng.gen_range(0, width), rng.gen_range(0, height)),
+      Point2::new(rng.gen_range(0, width), rng.gen_range(0, height)),
+      Point2::new(rng.gen_range(0, width), rng.gen_range(0, height)),
+      Color::random(rng),
+    )
   }
-
   fn mutate(&mut self, width: u32, height: u32, rng: &mut rand::rngs::OsRng) {
-    let mutate_w = 0.1 * width as f64;
-    let mutate_h = 0.1 * height as f64;
+    let mutate_w = 0.2 * width as f64;
+    let mutate_h = 0.2 * height as f64;
 
     fn clamp(v: f64, max: u32) -> u32 {
       if v < 0.0 {
@@ -193,59 +260,51 @@ impl Segment {
       rng.gen_range(lo, hi) as u32
     }
 
-    self.x0 = clamped_rand(self.x0, mutate_w, width, rng);
-    self.x1 = clamped_rand(self.x1, mutate_w, width, rng);
-    self.y0 = clamped_rand(self.y0, mutate_h, height, rng);
-    self.y1 = clamped_rand(self.y1, mutate_h, height, rng);
+    self.0.x = clamped_rand(self.0.x, mutate_w, width, rng);
+    self.0.y = clamped_rand(self.0.y, mutate_h, height, rng);
+    self.1.x = clamped_rand(self.1.x, mutate_w, width, rng);
+    self.1.y = clamped_rand(self.1.y, mutate_h, height, rng);
+    self.2.x = clamped_rand(self.2.x, mutate_w, width, rng);
+    self.2.y = clamped_rand(self.2.y, mutate_h, height, rng);
   }
 }
 
 #[wasm_bindgen]
-#[derive(Clone)]
 pub struct RandomImage {
   width: u32,
   height: u32,
   pixels: Vec<Pixel>,
-  segments: Vec<Segment>,
+  genes: Vec<Gene>,
 }
 
 #[wasm_bindgen]
 impl RandomImage {
-  pub fn reset(&mut self) {
-    self.segments.clear();
-
-    let segment_count = 10;
-    let mut rng = OsRng::new().unwrap();
-    for _ in 0..segment_count {
-      self
-        .segments
-        .push(Segment::random(self.width, self.height, &mut rng));
+  pub fn clear(&mut self) {
+    let size = (self.width * self.height) as usize;
+    for i in 0..size {
+      self.pixels[i].set_color(&Color::white());
     }
-    self.re_render();
   }
 
   pub fn new(width: u32, height: u32) -> RandomImage {
     let size = (width * height) as usize;
     let pixels: Vec<Pixel> = (0..size).map(|_| Pixel::new()).collect();
 
-    let segment_count = 10;
-    let mut segments = vec![];
+    let gene_count = 10;
+    let mut genes = vec![];
     let mut rng = OsRng::new().unwrap();
-    for _ in 0..segment_count {
-      segments.push(Segment::random(width, height, &mut rng));
+    for _ in 0..gene_count {
+      genes.push(Gene::random(width, height, &mut rng));
     }
     let mut ri = RandomImage {
       width,
       height,
       pixels,
-      segments,
+      genes,
     };
-    for segment in ri.segments.clone() {
-      ri.line(
-        segment.x0 as i32,
-        segment.y0 as i32,
-        segment.x1 as i32,
-        segment.y1 as i32,
+    for gene in ri.genes.clone() {
+      ri.triangle(
+        gene.0.x, gene.0.y, gene.1.x, gene.1.y, gene.2.x, gene.2.y, &gene.3,
       );
     }
     ri
@@ -253,17 +312,12 @@ impl RandomImage {
 
   fn re_render(&mut self) {
     for pixel in &mut self.pixels {
-      pixel.r = 255;
-      pixel.g = 255;
-      pixel.b = 255;
-      pixel.a = 255;
+      pixel.set_color(&Color::white());
     }
-    for segment in self.segments.clone() {
-      self.line(
-        segment.x0 as i32,
-        segment.y0 as i32,
-        segment.x1 as i32,
-        segment.y1 as i32,
+    for gene in self.genes.clone() {
+      let color = gene.3;
+      self.triangle(
+        gene.0.x, gene.0.y, gene.1.x, gene.1.y, gene.2.x, gene.2.y, &color,
       );
     }
   }
@@ -271,8 +325,8 @@ impl RandomImage {
   pub fn mutate(&mut self) {
     let mut rng = OsRng::new().unwrap();
 
-    for segment in &mut self.segments {
-      segment.mutate(self.width, self.height, &mut rng);
+    for gene in &mut self.genes {
+      gene.mutate(self.width, self.height, &mut rng);
     }
     self.re_render();
   }
@@ -297,59 +351,6 @@ impl RandomImage {
     (x as u32) < self.width && x >= 0 && (y as u32) < self.height && y >= 0
   }
 
-  pub fn line(&mut self, x0: i32, y0: i32, x1: i32, y1: i32) {
-    if y0 == y1 {
-      return self._horiz_line(y0, x0, x1);
-    } else if x0 == x1 {
-      return self._vert_line(x0, y0, y1);
-    }
-    if x0 > x1 {
-      // re-order so that we go from left to right
-      return self.line(x1, y1, x0, y0);
-    }
-    let delta_x = x1 - x0;
-    let delta_y = y1 - y0;
-    let delta_err: f32 = (delta_y as f32 / delta_x as f32).abs();
-    let mut error: f32 = 0.0;
-    let mut y = y0;
-    for x in x0..x1 {
-      if self.in_bounds(x, y) {
-        let index = self.pixel_index(x as u32, y as u32);
-        self.pixels[index].add_color();
-      }
-
-      error += delta_err;
-      if error >= 0.5 {
-        if delta_y > 0 {
-          y = y + 1;
-        } else {
-          y = y - 1;
-        }
-        error = error - 1.0;
-      }
-    }
-  }
-
-  fn _vert_line(&mut self, x0: i32, y0: i32, y1: i32) {
-    let x = x0;
-    for y in y0..y1 {
-      if self.in_bounds(x, y) {
-        let index = self.pixel_index(x as u32, y as u32);
-        self.pixels[index].add_color();
-      }
-    }
-  }
-
-  fn _horiz_line(&mut self, y0: i32, x0: i32, x1: i32) {
-    let y = y0;
-    for x in x0..x1 {
-      if self.in_bounds(x, y) {
-        let index = self.pixel_index(x as u32, y as u32);
-        self.pixels[index].add_color();
-      }
-    }
-  }
-
   fn pixel_index(&self, x: u32, y: u32) -> usize {
     let idx = (y * self.width + x) as usize;
     if idx >= self.size() {
@@ -364,15 +365,21 @@ impl RandomImage {
     idx
   }
 
-  pub fn triangle(&mut self, v0x: u32, v0y: u32, v1x: u32, v1y: u32, v2x: u32, v2y: u32) {
+  fn triangle(
+    &mut self,
+    v0x: u32,
+    v0y: u32,
+    v1x: u32,
+    v1y: u32,
+    v2x: u32,
+    v2y: u32,
+    color: &Color,
+  ) {
     let t = Triangle::new(v0x, v0y, v1x, v1y, v2x, v2y);
     for p in t.bbox.clone() {
       if t.contains(&p) {
         let idx = self.pixel_index(p.x, p.y);
-        self.pixels[idx].r = 0;
-        self.pixels[idx].g = 0;
-        self.pixels[idx].b = 0;
-        self.pixels[idx].a = 255;
+        self.pixels[idx].add_color(&color);
       }
     }
   }
@@ -400,7 +407,7 @@ impl RandomImage {
       width: self.width / tile_width,
       height: self.height / tile_height,
       pixels,
-      segments: vec![],
+      genes: vec![],
     };
 
     for tile_row in 0..shrunk_img.height {
@@ -481,9 +488,19 @@ impl Pixel {
       + (self.a as f64 - other.a as f64).powi(2)
   }
 
-  pub fn add_color(&mut self) {
-    self.r = 0;
-    self.g = 0;
-    self.b = 0;
+  fn set_color(&mut self, c: &Color) {
+    let Color { r, g, b, a } = c;
+    self.r = *r;
+    self.g = *g;
+    self.b = *b;
+    self.a = *a;
+  }
+
+  fn add_color(&mut self, c: &Color) {
+    let new_color = Color::from(self).add(c);
+    self.r = new_color.r;
+    self.g = new_color.g;
+    self.b = new_color.b;
+    self.a = new_color.a;
   }
 }
