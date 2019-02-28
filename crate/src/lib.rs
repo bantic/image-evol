@@ -40,6 +40,28 @@ cfg_if! {
     }
 }
 
+fn clamp(v: f64, min: f64, max: f64) -> f64 {
+  if v < min {
+    min
+  } else if v > max {
+    max
+  } else {
+    v
+  }
+}
+
+fn clamped_rand_range(
+  v: f64,
+  vary_width: f64,
+  min: f64,
+  max: f64,
+  rng: &mut rand::rngs::OsRng,
+) -> f64 {
+  let lo = clamp(v - vary_width, min, max);
+  let hi = clamp(v + vary_width, min, max);
+  rng.gen_range(lo, hi)
+}
+
 #[wasm_bindgen]
 pub struct Population {
   width: u32,
@@ -76,9 +98,6 @@ impl Population {
     let cull_percent = 0.2;
 
     self.members.sort();
-    for m in &self.members {
-      log!("evolve {:?}", m.fitness);
-    }
 
     // drop the worst-performers, mutate remaining, add new members
 
@@ -87,12 +106,7 @@ impl Population {
       self.members.pop();
     }
 
-    let mut i = 0;
     for m in &mut self.members {
-      i += 1;
-      if i == 1 {
-        continue;
-      }
       m.mutate();
       m.calculate_fitness(&self.ref_values, self.reference_w, self.reference_h);
     }
@@ -167,6 +181,14 @@ impl Color {
       b: 255,
       a: 255,
     }
+  }
+
+  fn mutate(&mut self, rng: &mut rand::rngs::OsRng) {
+    let vary_amt = 10.0;
+    self.r = clamped_rand_range(self.r as f64, vary_amt, 0.0, 255.0, rng) as u8;
+    self.g = clamped_rand_range(self.g as f64, vary_amt, 0.0, 255.0, rng) as u8;
+    self.b = clamped_rand_range(self.b as f64, vary_amt, 0.0, 255.0, rng) as u8;
+    self.a = clamped_rand_range(self.a as f64, vary_amt, 0.0, 255.0, rng) as u8;
   }
 
   // TODO: clean this up somehow
@@ -324,8 +346,8 @@ impl Gene {
     )
   }
   fn mutate(&mut self, width: u32, height: u32, rng: &mut rand::rngs::OsRng) {
-    let mutate_w = 0.2 * width as f64;
-    let mutate_h = 0.2 * height as f64;
+    let mutate_w = 0.1 * width as f64;
+    let mutate_h = 0.1 * height as f64;
 
     fn clamp(v: f64, max: u32) -> u32 {
       if v < 0.0 {
@@ -350,6 +372,7 @@ impl Gene {
     self.1.y = clamped_rand(self.1.y, mutate_h, height, rng);
     self.2.x = clamped_rand(self.2.x, mutate_w, width, rng);
     self.2.y = clamped_rand(self.2.y, mutate_h, height, rng);
+    self.3.mutate(rng); // color
   }
 }
 
