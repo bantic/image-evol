@@ -33,17 +33,17 @@ impl Population {
   }
 
   pub fn add_member(&mut self) {
-    self.members.push(RandomImage::new(self.width, self.height));
+    let mut member = RandomImage::new(self.width, self.height);
+    member.calculate_fitness(&self.ref_values, 10, 10);
+    self.members.push(member);
   }
 
   pub fn best_fitness(&mut self) -> f64 {
-    let mut best = core::f64::INFINITY;
+    let mut best = 0.0;
     let mut idx = 0;
     for m in &self.members {
-      let shrunk = m.shrink(10, 10);
-      let fitness = shrunk.calculate_fitness_with_values(&self.ref_values);
-      if fitness < best {
-        best = fitness;
+      if m.fitness > best {
+        best = m.fitness;
         self.best_index = idx;
       }
       idx += 1;
@@ -322,20 +322,15 @@ pub struct RandomImage {
   height: u32,
   pixels: Vec<Pixel>,
   genes: Vec<Gene>,
+  fitness: f64,
 }
 
 #[wasm_bindgen]
 impl RandomImage {
-  pub fn clear(&mut self) {
-    let size = (self.width * self.height) as usize;
-    for i in 0..size {
-      self.pixels[i].set_color(&Color::white());
-    }
-  }
-
   pub fn new(width: u32, height: u32) -> RandomImage {
     let size = (width * height) as usize;
-    let pixels: Vec<Pixel> = (0..size).map(|_| Pixel::new()).collect();
+    let white = Color::white();
+    let pixels: Vec<Pixel> = (0..size).map(|_| Pixel::of_color(&white)).collect();
 
     let gene_count = 10;
     let mut genes = vec![];
@@ -343,18 +338,25 @@ impl RandomImage {
     for _ in 0..gene_count {
       genes.push(Gene::random(width, height, &mut rng));
     }
-    let mut ri = RandomImage {
+    RandomImage {
       width,
       height,
       pixels,
       genes,
-    };
-    for gene in ri.genes.clone() {
-      ri.triangle(
-        gene.0.x, gene.0.y, gene.1.x, gene.1.y, gene.2.x, gene.2.y, &gene.3,
+      fitness: 0.0,
+    }
+  }
+
+  pub fn render(&mut self) {
+    for pixel in &mut self.pixels {
+      pixel.set_color(&Color::white());
+    }
+    for gene in self.genes.clone() {
+      let color = gene.3;
+      self.triangle(
+        gene.0.x, gene.0.y, gene.1.x, gene.1.y, gene.2.x, gene.2.y, &color,
       );
     }
-    ri
   }
 
   fn re_render(&mut self) {
@@ -455,6 +457,7 @@ impl RandomImage {
       height: self.height / tile_height,
       pixels,
       genes: vec![],
+      fitness: 0.0,
     };
 
     for tile_row in 0..shrunk_img.height {
@@ -485,10 +488,17 @@ impl RandomImage {
     shrunk_img
   }
 
-  pub fn calculate_fitness(&self, reference: &RandomImage) -> f64 {
-    self
-      .shrink(reference.width(), reference.height())
-      .compare(reference)
+  pub fn calculate_fitness(
+    &mut self,
+    reference_values: &[u8],
+    reference_w: u32,
+    reference_h: u32,
+  ) -> f64 {
+    self.render();
+    let shrunk = self.shrink(reference_w, reference_h);
+    let fitness = shrunk.calculate_fitness_with_values(reference_values);
+    self.fitness = fitness;
+    fitness
   }
 
   pub fn calculate_fitness_with_values(&self, values: &[u8]) -> f64 {
@@ -512,23 +522,9 @@ impl RandomImage {
       err += squared_error(pixel.b, values[idx + 2]);
       err += squared_error(pixel.a, values[idx + 3]);
     }
-    err / values.len() as f64
-  }
 
-  pub fn compare(&self, other: &RandomImage) -> f64 {
-    let mut err = 0.0;
-    if self.size() != other.size() {
-      log!(
-        "Got bad sizes for compare {} <> {}",
-        self.size(),
-        other.size()
-      );
-      panic!("Got bad sizes for compare");
-    }
-    for (lhs, rhs) in self.pixels.iter().zip(&other.pixels) {
-      err += lhs.squared_error(&rhs);
-    }
-    err / self.pixels.len() as f64
+    let len = values.len() as f64;
+    1.0 - (err / (len * len * 256.0 * 256.0))
   }
 
   // TODO - Is this a speed/memory issue, that the pixel is copied? It is a lightweight struct so
@@ -541,7 +537,7 @@ impl RandomImage {
 #[wasm_bindgen]
 #[derive(Debug, Clone, Copy)]
 pub struct Pixel {
-  pub r: u8,
+  r: u8,
   g: u8,
   b: u8,
   a: u8,
@@ -555,6 +551,15 @@ impl Pixel {
       g: 255,
       b: 255,
       a: 255,
+    }
+  }
+
+  fn of_color(c: &Color) -> Pixel {
+    Pixel {
+      r: c.r,
+      g: c.g,
+      b: c.b,
+      a: c.a,
     }
   }
 

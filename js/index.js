@@ -21,6 +21,9 @@ function run(wasm) {
   console.time('RandomImage.new');
   let referenceImage = wasm.RandomImage.new(width, height);
   console.timeEnd('RandomImage.new');
+  console.time('RandomImage.render');
+  referenceImage.render();
+  console.timeEnd('RandomImage.render');
 
   drawImageFromWASMMemory(els.canvas, referenceImage, wasm);
 
@@ -28,24 +31,18 @@ function run(wasm) {
   let shrunkReferenceImage = referenceImage.shrink(widthShrunk, heightShrunk);
   let err = Infinity;
 
-  let population = [];
-  for (let i = 0; i < POP_SIZE; i++) {
-    population.push({
-      image: wasm.RandomImage.new(width, height),
-      err: Infinity
-    });
-  }
+  let pop = wasm.Population.new(
+    width,
+    height,
+    shrunkReferenceImage.pixels(),
+    10 * 10 * 4
+  );
+  pop.add_member();
 
   els.buttonWASM.addEventListener('click', () => {
-    let mem = wasm.get_memory();
-    let data = new Uint8ClampedArray(
-      mem.buffer,
-      shrunkReferenceImage.pixels(),
-      4 * shrunkReferenceImage.size()
-    );
-    let pop = wasm.Population.new(10, 10, data);
     pop.add_member();
     console.log(pop.best_fitness());
+    drawPixels(els.canvas2, pop.best_pixels(), width, height, wasm);
     // requestAnimationFrame(update);
   });
 
@@ -58,28 +55,10 @@ function run(wasm) {
       return;
     }
 
-    for (let item of population) {
-      if (item.err == err && err !== Infinity) {
-        continue;
-      }
-      item.image.mutate();
-      let newErr = item.image.calculate_fitness(shrunkReferenceImage);
-      item.err = newErr;
-    }
-
-    let sorted = population.sort((a, b) => {
-      return a.err < b.err ? -1 : a.err > b.err ? 1 : 0;
-    });
-    let best = sorted[0];
-    // reset bottom 2
-    // TODO bring back population culling
-    // sorted[sorted.length - 1].image.reset();
-    // sorted[sorted.length - 2].image.reset();
-
-    console.log(`err ${err} -> ${best.err}`);
-    err = best.err;
-    drawImageFromWASMMemory(els.canvas2, best.image, wasm);
-    updateUI(els, iterations, err);
+    // console.log(`err ${err} -> ${best.err}`);
+    // err = best.err;
+    // drawImageFromWASMMemory(els.canvas2, best.image, wasm);
+    // updateUI(els, iterations, err);
     requestAnimationFrame(update);
   }
 }
@@ -87,6 +66,16 @@ function run(wasm) {
 function updateUI({ uiIterations, uiError }, iterations, err) {
   uiIterations.textContent = `Iterations: ${iterations}`;
   uiError.textContent = `Err: ${err}`;
+}
+
+function drawPixels(canvas, pixelsPtr, width, height, wasm) {
+  canvas.width = width;
+  canvas.height = height;
+  let mem = wasm.get_memory();
+  let data = new Uint8ClampedArray(mem.buffer, pixelsPtr, 4 * width * height);
+  let imageData = new ImageData(data, width, height);
+  let ctx = canvas.getContext('2d');
+  ctx.putImageData(imageData, 0, 0);
 }
 
 // Find the slice of WASM memory that corresponds to the image's
@@ -99,8 +88,8 @@ function drawImageFromWASMMemory(canvas, image, wasm) {
 
   // console.time('drawImageWithWASMMemory');
   let mem = wasm.get_memory();
-  let pixels = image.pixels();
-  let data = new Uint8ClampedArray(mem.buffer, pixels, 4 * image.size());
+  let pixelsPtr = image.pixels();
+  let data = new Uint8ClampedArray(mem.buffer, pixelsPtr, 4 * image.size());
   let imageData = new ImageData(data, width, height);
 
   let ctx = canvas.getContext('2d');
