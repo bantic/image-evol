@@ -3,7 +3,7 @@ import('../crate/pkg').then(module => {
 });
 
 const LARGE_IMAGE_DIMS = { width: 300, height: 300 };
-const SHRUNK_DIMS = { width: 10, height: 10 };
+const SHRUNK_DIMS = { width: 75, height: 75 };
 const POP_SIZE = 10;
 
 function run(wasm) {
@@ -19,7 +19,7 @@ function run(wasm) {
   let { width, height } = LARGE_IMAGE_DIMS;
 
   console.time('RandomImage.new');
-  let referenceImage = wasm.RandomImage.new(width, height);
+  let referenceImage = wasm.RandomImage.new_with_gene_count(width, height, 3);
   console.timeEnd('RandomImage.new');
   console.time('RandomImage.render');
   referenceImage.render();
@@ -31,10 +31,15 @@ function run(wasm) {
   let shrunkReferenceImage = referenceImage.shrink(widthShrunk, heightShrunk);
   let err = Infinity;
 
+  let referencePixels = getReferencePixelsFromImage(
+    document.getElementById('image'),
+    els.canvas
+  );
+
   let pop = wasm.Population.new(
     width,
     height,
-    shrunkReferenceImage.pixels(),
+    referencePixels, // shrunkReferenceImage.pixels(),
     SHRUNK_DIMS.width,
     SHRUNK_DIMS.height
   );
@@ -98,4 +103,13 @@ function drawImageFromWASMMemory(canvas, image, wasm) {
   let ctx = canvas.getContext('2d');
   ctx.putImageData(imageData, 0, 0);
   // console.timeEnd('drawImageWithWASMMemory');
+}
+
+function getReferencePixelsFromImage(image, canvas) {
+  let ctx = canvas.getContext('2d');
+  canvas.width = image.width;
+  canvas.height = image.height;
+  ctx.drawImage(image, 0, 0);
+  let imageData = ctx.getImageData(0, 0, image.width, image.height);
+  return imageData.data;
 }

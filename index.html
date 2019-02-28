@@ -5,22 +5,8 @@
     <title>Image Evolution</title>
   </head>
   <body>
-    <p>
-      Experiment to compare the speed of shrinking an image with WASM or in
-      plain JS.
-    </p>
-    <p>
-      The shrink algorithm is: iterate through the pixels of the image and
-      average contiguous blocks of pixels.
-    </p>
-    <p>
-      Timings are logged in the console. Sample results on 2/19/19 for a
-      500x500->100x100 shrink:
-      <br />
-      Shrink with JS takes ~15-25ms (but multiple calls appear to cause Chrome's
-      optimizing compiler to kick in, and subsequent shrinks take ~3ms). Shrink
-      with WASM takes ~65-75ms.
-    </p>
+    <!-- https://www.moma.org/collection/works/68437 -->
+    <img id="image" src="./public/rhino.jpg" width="300" height="300" />
     <div id="ui">
       <span id="ui-iterations"></span>
       <span id="ui-error"></span>

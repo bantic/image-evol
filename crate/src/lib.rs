@@ -95,7 +95,7 @@ impl Population {
   }
 
   pub fn evolve(&mut self) {
-    let cull_percent = 0.2;
+    let cull_percent = 0.5;
 
     self.members.sort();
 
@@ -117,7 +117,7 @@ impl Population {
 
   pub fn add_member(&mut self) {
     let mut member = RandomImage::new(self.width, self.height);
-    member.calculate_fitness(&self.ref_values, 10, 10);
+    member.calculate_fitness(&self.ref_values, self.reference_w, self.reference_h);
     self.members.push(member);
   }
 
@@ -170,7 +170,7 @@ impl Color {
       r: rng.gen_range(0, 255),
       g: rng.gen_range(0, 255),
       b: rng.gen_range(0, 255),
-      a: rng.gen_range(0, 255),
+      a: rng.gen_range(0, 50),
     }
   }
 
@@ -184,7 +184,7 @@ impl Color {
   }
 
   fn mutate(&mut self, rng: &mut rand::rngs::OsRng) {
-    let vary_amt = 10.0;
+    let vary_amt = 5.0;
     self.r = clamped_rand_range(self.r as f64, vary_amt, 0.0, 255.0, rng) as u8;
     self.g = clamped_rand_range(self.g as f64, vary_amt, 0.0, 255.0, rng) as u8;
     self.b = clamped_rand_range(self.b as f64, vary_amt, 0.0, 255.0, rng) as u8;
@@ -346,8 +346,8 @@ impl Gene {
     )
   }
   fn mutate(&mut self, width: u32, height: u32, rng: &mut rand::rngs::OsRng) {
-    let mutate_w = 0.1 * width as f64;
-    let mutate_h = 0.1 * height as f64;
+    let mutate_w = 0.05 * width as f64;
+    let mutate_h = 0.05 * height as f64;
 
     fn clamp(v: f64, max: u32) -> u32 {
       if v < 0.0 {
@@ -418,7 +418,26 @@ impl RandomImage {
     let white = Color::white();
     let pixels: Vec<Pixel> = (0..size).map(|_| Pixel::of_color(&white)).collect();
 
-    let gene_count = 10;
+    let gene_count = 50;
+    let mut genes = vec![];
+    let mut rng = OsRng::new().unwrap();
+    for _ in 0..gene_count {
+      genes.push(Gene::random(width, height, &mut rng));
+    }
+    RandomImage {
+      width,
+      height,
+      pixels,
+      genes,
+      fitness: 0.0,
+    }
+  }
+
+  pub fn new_with_gene_count(width: u32, height: u32, gene_count: u32) -> RandomImage {
+    let size = (width * height) as usize;
+    let white = Color::white();
+    let pixels: Vec<Pixel> = (0..size).map(|_| Pixel::of_color(&white)).collect();
+
     let mut genes = vec![];
     let mut rng = OsRng::new().unwrap();
     for _ in 0..gene_count {
