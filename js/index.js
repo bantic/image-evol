@@ -37,13 +37,12 @@ function run(wasm) {
     shrunkReferenceImage.pixels(),
     10 * 10 * 4
   );
-  pop.add_member();
+  for (let i = 0; i < 10; i++) {
+    pop.add_member();
+  }
 
   els.buttonWASM.addEventListener('click', () => {
-    pop.add_member();
-    console.log(pop.best_fitness());
-    drawPixels(els.canvas2, pop.best_pixels(), width, height, wasm);
-    // requestAnimationFrame(update);
+    requestAnimationFrame(update);
   });
 
   let iterations = 0;
@@ -54,11 +53,14 @@ function run(wasm) {
     if (iterations > MAX_ITER) {
       return;
     }
+    let best = pop.best_fitness();
+    drawPixels(els.canvas2, pop.best_pixels(), width, height, wasm);
+    pop.evolve();
 
     // console.log(`err ${err} -> ${best.err}`);
     // err = best.err;
     // drawImageFromWASMMemory(els.canvas2, best.image, wasm);
-    // updateUI(els, iterations, err);
+    updateUI(els, iterations, best);
     requestAnimationFrame(update);
   }
 }

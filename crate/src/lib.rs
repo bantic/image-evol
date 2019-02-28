@@ -7,54 +7,9 @@ extern crate wasm_bindgen;
 use nalgebra::{Point2, Vector3};
 use rand::rngs::OsRng;
 use rand::Rng;
+use std::cmp::Ordering;
 use std::slice;
 use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-pub struct Population {
-  width: u32,
-  height: u32,
-  ref_values: Vec<u8>,
-  members: Vec<RandomImage>,
-  best_index: i32,
-}
-
-#[wasm_bindgen]
-impl Population {
-  pub fn new(width: u32, height: u32, ptr: *mut u8, reference_values_count: usize) -> Self {
-    let ref_values = unsafe { slice::from_raw_parts(ptr, reference_values_count as usize) };
-    Self {
-      width,
-      height,
-      ref_values: ref_values.to_vec(),
-      members: vec![],
-      best_index: -1,
-    }
-  }
-
-  pub fn add_member(&mut self) {
-    let mut member = RandomImage::new(self.width, self.height);
-    member.calculate_fitness(&self.ref_values, 10, 10);
-    self.members.push(member);
-  }
-
-  pub fn best_fitness(&mut self) -> f64 {
-    let mut best = 0.0;
-    let mut idx = 0;
-    for m in &self.members {
-      if m.fitness > best {
-        best = m.fitness;
-        self.best_index = idx;
-      }
-      idx += 1;
-    }
-    best
-  }
-
-  pub fn best_pixels(&self) -> *const Pixel {
-    self.members[self.best_index as usize].pixels()
-  }
-}
 
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
@@ -83,6 +38,68 @@ cfg_if! {
         #[global_allocator]
         static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
     }
+}
+
+#[wasm_bindgen]
+pub struct Population {
+  width: u32,
+  height: u32,
+  ref_values: Vec<u8>,
+  members: Vec<RandomImage>,
+  best_index: i32,
+}
+
+#[wasm_bindgen]
+impl Population {
+  pub fn new(width: u32, height: u32, ptr: *mut u8, reference_values_count: usize) -> Self {
+    let ref_values = unsafe { slice::from_raw_parts(ptr, reference_values_count as usize) };
+    Self {
+      width,
+      height,
+      ref_values: ref_values.to_vec(),
+      members: vec![],
+      best_index: -1,
+    }
+  }
+
+  pub fn evolve(&mut self) {
+    let cull_percent = 0.2;
+
+    self.members.sort();
+
+    let cull_count = ((self.members.len() as f64) * cull_percent) as u8;
+    for _ in 0..cull_count {
+      self.members.remove(0);
+    }
+    for m in &mut self.members {
+      m.mutate();
+    }
+    for _ in 0..cull_count {
+      self.add_member();
+    }
+
+    // drop the worst-performers, mutate remaining, add new members
+  }
+
+  pub fn add_member(&mut self) {
+    let mut member = RandomImage::new(self.width, self.height);
+    member.calculate_fitness(&self.ref_values, 10, 10);
+    self.members.push(member);
+  }
+
+  pub fn best_fitness(&mut self) -> f64 {
+    if self.members.len() == 0 {
+      0.0
+    } else {
+      self.members.sort();
+      self.members.last().unwrap().fitness
+    }
+  }
+
+  pub fn best_pixels(&mut self) -> *const Pixel {
+    self.members.sort();
+    self.members.last().unwrap().pixels()
+  }
 }
 
 #[wasm_bindgen]
@@ -324,6 +341,32 @@ pub struct RandomImage {
   genes: Vec<Gene>,
   fitness: f64,
 }
+
+impl Ord for RandomImage {
+  fn cmp(&self, other: &RandomImage) -> Ordering {
+    if self.fitness > other.fitness {
+      Ordering::Greater
+    } else if self.fitness < other.fitness {
+      Ordering::Less
+    } else {
+      Ordering::Equal
+    }
+  }
+}
+
+impl PartialOrd for RandomImage {
+  fn partial_cmp(&self, other: &RandomImage) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl PartialEq for RandomImage {
+  fn eq(&self, other: &RandomImage) -> bool {
+    self.fitness == other.fitness
+  }
+}
+
+impl Eq for RandomImage {}
 
 #[wasm_bindgen]
 impl RandomImage {
