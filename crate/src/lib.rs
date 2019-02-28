@@ -7,6 +7,7 @@ extern crate wasm_bindgen;
 use nalgebra::{Point2, Vector3};
 use rand::rngs::OsRng;
 use rand::Rng;
+use std::slice;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -15,16 +16,19 @@ pub struct Population {
   height: u32,
   ref_values: Vec<u8>,
   members: Vec<RandomImage>,
+  best_index: i32,
 }
 
 #[wasm_bindgen]
 impl Population {
-  pub fn new(width: u32, height: u32, ref_values: &[u8]) -> Self {
+  pub fn new(width: u32, height: u32, ptr: *mut u8, reference_values_count: usize) -> Self {
+    let ref_values = unsafe { slice::from_raw_parts(ptr, reference_values_count as usize) };
     Self {
       width,
       height,
       ref_values: ref_values.to_vec(),
       members: vec![],
+      best_index: -1,
     }
   }
 
@@ -32,15 +36,23 @@ impl Population {
     self.members.push(RandomImage::new(self.width, self.height));
   }
 
-  pub fn best_fitness(&self) -> f64 {
+  pub fn best_fitness(&mut self) -> f64 {
     let mut best = core::f64::INFINITY;
+    let mut idx = 0;
     for m in &self.members {
-      let fitness = m.calculate_fitness_with_values(&self.ref_values);
+      let shrunk = m.shrink(10, 10);
+      let fitness = shrunk.calculate_fitness_with_values(&self.ref_values);
       if fitness < best {
         best = fitness;
+        self.best_index = idx;
       }
+      idx += 1;
     }
     best
+  }
+
+  pub fn best_pixels(&self) -> *const Pixel {
+    self.members[self.best_index as usize].pixels()
   }
 }
 
@@ -498,7 +510,7 @@ impl RandomImage {
       err += squared_error(pixel.r, values[idx]);
       err += squared_error(pixel.g, values[idx + 1]);
       err += squared_error(pixel.b, values[idx + 2]);
-      err += squared_error(pixel.b, values[idx + 3]);
+      err += squared_error(pixel.a, values[idx + 3]);
     }
     err / values.len() as f64
   }
