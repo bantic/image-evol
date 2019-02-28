@@ -46,19 +46,29 @@ pub struct Population {
   height: u32,
   ref_values: Vec<u8>,
   members: Vec<RandomImage>,
-  best_index: i32,
+  reference_w: u32,
+  reference_h: u32,
 }
 
 #[wasm_bindgen]
 impl Population {
-  pub fn new(width: u32, height: u32, ptr: *mut u8, reference_values_count: usize) -> Self {
-    let ref_values = unsafe { slice::from_raw_parts(ptr, reference_values_count as usize) };
+  pub fn new(
+    width: u32,
+    height: u32,
+    rev_values_ptr: *mut u8,
+    reference_w: u32,
+    reference_h: u32,
+  ) -> Self {
+    let reference_values_count = reference_w * reference_h * 4;
+    let ref_values =
+      unsafe { slice::from_raw_parts(rev_values_ptr, reference_values_count as usize) };
     Self {
       width,
       height,
       ref_values: ref_values.to_vec(),
       members: vec![],
-      best_index: -1,
+      reference_w,
+      reference_h,
     }
   }
 
@@ -66,19 +76,29 @@ impl Population {
     let cull_percent = 0.2;
 
     self.members.sort();
+    for m in &self.members {
+      log!("evolve {:?}", m.fitness);
+    }
+
+    // drop the worst-performers, mutate remaining, add new members
 
     let cull_count = ((self.members.len() as f64) * cull_percent) as u8;
     for _ in 0..cull_count {
-      self.members.remove(0);
+      self.members.pop();
     }
+
+    let mut i = 0;
     for m in &mut self.members {
+      i += 1;
+      if i == 1 {
+        continue;
+      }
       m.mutate();
+      m.calculate_fitness(&self.ref_values, self.reference_w, self.reference_h);
     }
     for _ in 0..cull_count {
       self.add_member();
     }
-
-    // drop the worst-performers, mutate remaining, add new members
   }
 
   pub fn add_member(&mut self) {
@@ -92,13 +112,13 @@ impl Population {
       0.0
     } else {
       self.members.sort();
-      self.members.last().unwrap().fitness
+      self.members.first().unwrap().fitness
     }
   }
 
   pub fn best_pixels(&mut self) -> *const Pixel {
     self.members.sort();
-    self.members.last().unwrap().pixels()
+    self.members.first().unwrap().pixels()
   }
 }
 
@@ -402,25 +422,12 @@ impl RandomImage {
     }
   }
 
-  fn re_render(&mut self) {
-    for pixel in &mut self.pixels {
-      pixel.set_color(&Color::white());
-    }
-    for gene in self.genes.clone() {
-      let color = gene.3;
-      self.triangle(
-        gene.0.x, gene.0.y, gene.1.x, gene.1.y, gene.2.x, gene.2.y, &color,
-      );
-    }
-  }
-
   pub fn mutate(&mut self) {
     let mut rng = OsRng::new().unwrap();
 
     for gene in &mut self.genes {
       gene.mutate(self.width, self.height, &mut rng);
     }
-    self.re_render();
   }
 
   pub fn width(&self) -> u32 {
@@ -566,8 +573,7 @@ impl RandomImage {
       err += squared_error(pixel.a, values[idx + 3]);
     }
 
-    let len = values.len() as f64;
-    1.0 - (err / (len * len * 256.0 * 256.0))
+    err / values.len() as f64
   }
 
   // TODO - Is this a speed/memory issue, that the pixel is copied? It is a lightweight struct so

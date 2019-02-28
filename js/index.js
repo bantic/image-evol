@@ -35,9 +35,10 @@ function run(wasm) {
     width,
     height,
     shrunkReferenceImage.pixels(),
-    10 * 10 * 4
+    SHRUNK_DIMS.width,
+    SHRUNK_DIMS.height
   );
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < POP_SIZE; i++) {
     pop.add_member();
   }
 
