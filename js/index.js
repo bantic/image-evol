@@ -37,7 +37,16 @@ function run(wasm) {
   }
 
   els.buttonWASM.addEventListener('click', () => {
-    requestAnimationFrame(update);
+    let mem = wasm.get_memory();
+    let data = new Uint8ClampedArray(
+      mem.buffer,
+      shrunkReferenceImage.pixels(),
+      4 * shrunkReferenceImage.size()
+    );
+    let pop = wasm.Population.new(10, 10, data);
+    pop.add_member();
+    console.log(pop.best_fitness());
+    // requestAnimationFrame(update);
   });
 
   let iterations = 0;

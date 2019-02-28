@@ -9,6 +9,41 @@ use rand::rngs::OsRng;
 use rand::Rng;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen]
+pub struct Population {
+  width: u32,
+  height: u32,
+  ref_values: Vec<u8>,
+  members: Vec<RandomImage>,
+}
+
+#[wasm_bindgen]
+impl Population {
+  pub fn new(width: u32, height: u32, ref_values: &[u8]) -> Self {
+    Self {
+      width,
+      height,
+      ref_values: ref_values.to_vec(),
+      members: vec![],
+    }
+  }
+
+  pub fn add_member(&mut self) {
+    self.members.push(RandomImage::new(self.width, self.height));
+  }
+
+  pub fn best_fitness(&self) -> f64 {
+    let mut best = core::f64::INFINITY;
+    for m in &self.members {
+      let fitness = m.calculate_fitness_with_values(&self.ref_values);
+      if fitness < best {
+        best = fitness;
+      }
+    }
+    best
+  }
+}
+
 // A macro to provide `println!(..)`-style syntax for `console.log` logging.
 macro_rules! log {
     ( $( $t:tt )* ) => {
@@ -442,6 +477,30 @@ impl RandomImage {
     self
       .shrink(reference.width(), reference.height())
       .compare(reference)
+  }
+
+  pub fn calculate_fitness_with_values(&self, values: &[u8]) -> f64 {
+    self.compare_values(values)
+  }
+
+  pub fn compare_values(&self, values: &[u8]) -> f64 {
+    let mut err = 0.0;
+    if self.pixels.len() * 4 != values.len() {
+      log!("Got bad sizes for compare");
+      panic!("Got bad sizes for compare");
+    }
+
+    fn squared_error(lhs: u8, rhs: u8) -> f64 {
+      (lhs as f64 - rhs as f64).powi(2)
+    }
+
+    for (idx, pixel) in self.pixels.iter().enumerate() {
+      err += squared_error(pixel.r, values[idx]);
+      err += squared_error(pixel.g, values[idx + 1]);
+      err += squared_error(pixel.b, values[idx + 2]);
+      err += squared_error(pixel.b, values[idx + 3]);
+    }
+    err / values.len() as f64
   }
 
   pub fn compare(&self, other: &RandomImage) -> f64 {
