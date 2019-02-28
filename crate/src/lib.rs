@@ -95,9 +95,13 @@ impl Population {
   }
 
   pub fn evolve(&mut self) {
-    let cull_percent = 0.5;
+    let mut rng = OsRng::new().unwrap();
+    let mutate_percent = 0.2;
+    let cull_percent = 0.25;
 
     self.members.sort();
+    let fitnesses = self.members.iter().map(|m| m.fitness).collect::<Vec<f64>>();
+    log!("fitnesses, sorted: {:?}", fitnesses);
 
     // drop the worst-performers, mutate remaining, add new members
 
@@ -107,8 +111,10 @@ impl Population {
     }
 
     for m in &mut self.members {
-      m.mutate();
-      m.calculate_fitness(&self.ref_values, self.reference_w, self.reference_h);
+      if mutate_percent > rng.gen::<f64>() {
+        m.mutate();
+        m.calculate_fitness(&self.ref_values, self.reference_w, self.reference_h);
+      }
     }
     for _ in 0..cull_count {
       self.add_member();
@@ -464,6 +470,16 @@ impl RandomImage {
     }
   }
 
+  pub fn breed(&mut self, other: &RandomImage) {
+    let mut rng = OsRng::new().unwrap();
+    let rel_fitness = self.fitness / (self.fitness + other.fitness);
+    for (lhs, rhs) in self.genes.iter_mut().zip(&other.genes) {
+      if rng.gen::<f64>() > rel_fitness {
+        *lhs = rhs.clone();
+      }
+    }
+  }
+
   pub fn mutate(&mut self) {
     let mut rng = OsRng::new().unwrap();
 
@@ -628,7 +644,7 @@ impl RandomImage {
 #[wasm_bindgen]
 #[derive(Debug, Clone, Copy)]
 pub struct Pixel {
-  r: u8,
+  pub r: u8, // <-- pub for test
   g: u8,
   b: u8,
   a: u8,
@@ -636,15 +652,6 @@ pub struct Pixel {
 
 #[wasm_bindgen]
 impl Pixel {
-  fn new() -> Pixel {
-    Pixel {
-      r: 255,
-      g: 255,
-      b: 255,
-      a: 255,
-    }
-  }
-
   fn of_color(c: &Color) -> Pixel {
     Pixel {
       r: c.r,
@@ -652,13 +659,6 @@ impl Pixel {
       b: c.b,
       a: c.a,
     }
-  }
-
-  fn squared_error(&self, other: &Pixel) -> f64 {
-    (self.r as f64 - other.r as f64).powi(2)
-      + (self.g as f64 - other.g as f64).powi(2)
-      + (self.b as f64 - other.b as f64).powi(2)
-      + (self.a as f64 - other.a as f64).powi(2)
   }
 
   fn set_color(&mut self, c: &Color) {
