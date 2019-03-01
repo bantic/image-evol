@@ -4,6 +4,8 @@ An experiment in writing a genetic evolution algorithm that runs in wasm in the 
 
 ![gif of image evoluation](image-evol.gif)
 
+Curious? There is [a presentation](https://docs.google.com/presentation/d/1qxn7Ype4TxMTzMqR1i-4HhhbhUwFkZeqJ7f6e_lw9eA/edit#slide=id.p) covering my learnings while working on this, and a [deployed site](http://rust-wasm-image-evolution.surge.sh/) that hosts the various demos that show different points of progress.
+
 # todos
 
 - [x] write the similarity code
@@ -21,7 +23,7 @@ An experiment in writing a genetic evolution algorithm that runs in wasm in the 
 ## later todos
 
 - [ ] remove unneeded nalgebra crate?
-- [ ] load an image as a reference rather than random
+- [x] load an image as a reference rather than random
 - [ ] UI controls to modify mutation rates
 
 - `npm run start` -- Serve the project locally for development at
